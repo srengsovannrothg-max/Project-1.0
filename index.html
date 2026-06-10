@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Discussion — DeepSeek × ChatGPT</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f0f0f5; color: #1a1a1a;
+    min-height: 100vh; display: flex;
+    flex-direction: column; align-items: center; padding: 2rem 1rem;
+  }
+  header { text-align: center; margin-bottom: 2rem; }
+  header h1 { font-size: 22px; font-weight: 500; }
+  header p { font-size: 14px; color: #888; margin-top: 4px; }
+  .badges { display: flex; gap: 10px; justify-content: center; margin-top: 10px; }
+  .badge { font-size: 12px; font-weight: 500; padding: 4px 12px; border-radius: 20px; border: 0.5px solid; }
+  .badge.deepseek { background: #eef0fb; color: #3a46b0; border-color: #b0b6e8; }
+  .badge.chatgpt  { background: #e8f5ee; color: #1a6640; border-color: #8ecbaa; }
+  .container { width: 100%; max-width: 780px; display: flex; flex-direction: column; gap: 1rem; }
+  .card { background: #fff; border: 0.5px solid #ddd; border-radius: 12px; padding: 1.25rem; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  @media (max-width: 540px) { .two-col { grid-template-columns: 1fr; } }
+  label { font-size: 13px; color: #666; display: block; margin-bottom: 5px; }
+  input[type="text"], textarea {
+    width: 100%; font-family: inherit; font-size: 14px;
+    border: 0.5px solid #ccc; border-radius: 8px;
+    padding: 8px 12px; background: #fafafa; color: #1a1a1a;
+    outline: none; transition: border-color 0.15s;
+  }
+  input:focus, textarea:focus { border-color: #777; background: #fff; }
+  textarea { min-height: 90px; resize: vertical; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+  .turns-row { display: flex; gap: 8px; align-items: center; }
+  .turns-row label { margin: 0; white-space: nowrap; }
+  .turns-row input[type=range] { width: 90px; accent-color: #555; }
+  .turns-val { font-size: 13px; font-weight: 500; min-width: 20px; }
+  button {
+    font-family: inherit; font-size: 13px;
+    padding: 7px 16px; border-radius: 8px;
+    border: 0.5px solid #ccc; background: #fff;
+    color: #1a1a1a; cursor: pointer; transition: background 0.1s;
+  }
+  button:hover { background: #f0eef8; }
+  button:active { transform: scale(0.98); }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  button.primary { background: #2a2a2a; color: #fff; border-color: #2a2a2a; }
+  button.primary:hover { background: #444; }
+  .status { font-size: 12px; color: #999; min-height: 18px; padding: 0 2px; }
+  .chat-window {
+    background: #f4f4f8; border: 0.5px solid #ddd; border-radius: 12px;
+    padding: 1rem; min-height: 340px; max-height: 540px;
+    overflow-y: auto; display: flex; flex-direction: column;
+    gap: 14px; scroll-behavior: smooth;
+  }
+  .empty-state {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    font-size: 13px; color: #bbb; text-align: center; padding: 2rem;
+  }
+  .msg { display: flex; gap: 10px; align-items: flex-start; }
+  .msg.deepseek { flex-direction: row; }
+  .msg.chatgpt  { flex-direction: row-reverse; }
+  .avatar {
+    width: 32px; height: 32px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 600; flex-shrink: 0;
+  }
+  .avatar.deepseek { background: #dde0f8; color: #3a46b0; }
+  .avatar.chatgpt  { background: #d4eedd; color: #1a6640; }
+  .msg-col { display: flex; flex-direction: column; max-width: 74%; }
+  .msg-meta { font-size: 11px; color: #bbb; margin-bottom: 4px; }
+  .deepseek .msg-meta { text-align: left; }
+  .chatgpt  .msg-meta { text-align: right; }
+  .bubble {
+    padding: 10px 14px; border-radius: 12px; font-size: 14px;
+    line-height: 1.65; color: #1a1a1a; background: #fff;
+    border: 0.5px solid #e0dde8;
+  }
+  .deepseek .bubble { border-top-left-radius: 3px; }
+  .chatgpt  .bubble { border-top-right-radius: 3px; }
+  .injected-label { text-align: center; font-size: 12px; color: #bbb; font-style: italic; padding: 2px 0; }
+  .typing-wrap { display: flex; gap: 10px; align-items: flex-start; }
+  .typing-wrap.chatgpt { flex-direction: row-reverse; }
+  .typing-dots {
+    display: flex; gap: 4px; align-items: center;
+    background: #fff; border: 0.5px solid #e0dde8;
+    border-radius: 12px; padding: 12px 16px;
+  }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: #bbb; animation: bounce 1.2s infinite; }
+  .dot:nth-child(2) { animation-delay: 0.2s; }
+  .dot:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-5px)} }
+  .model-select {
+    width: 100%; font-family: inherit; font-size: 13px;
+    border: 0.5px solid #ccc; border-radius: 8px;
+    padding: 6px 10px; background: #fafafa; color: #1a1a1a; outline: none;
+  }
+  .hint { font-size: 12px; color: #aaa; margin-top: 5px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>AI Discussion Bridge</h1>
+  <p>DeepSeek × ChatGPT — via Vercel proxy</p>
+  <div class="badges">
+    <span class="badge deepseek">DeepSeek</span>
+    <span class="badge chatgpt">ChatGPT</span>
+  </div>
+</header>
+
+<div class="container">
+
+  <div class="card">
+    <label>Proxy URL (your Vercel deployment)</label>
+    <input type="text" id="proxy-url" placeholder="https://your-app.vercel.app/api/proxy" />
+    <p class="hint">After deploying, paste your Vercel URL here. For local dev use: http://localhost:3000/api/proxy</p>
+  </div>
+
+  <div class="card two-col">
+    <div>
+      <label>DeepSeek model</label>
+      <select class="model-select" id="ds-model">
+        <option value="deepseek-chat">deepseek-chat (V3)</option>
+        <option value="deepseek-reasoner">deepseek-reasoner (R1)</option>
+      </select>
+    </div>
+    <div>
+      <label>ChatGPT model</label>
+      <select class="model-select" id="oai-model">
+        <option value="gpt-4o">GPT-4o</option>
+        <option value="gpt-4o-mini">GPT-4o mini</option>
+        <option value="gpt-4-turbo">GPT-4 Turbo</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="card">
+    <label>Project topic / discussion context</label>
+    <textarea id="topic" placeholder="e.g. We are building a SaaS tool for freelancers to track invoices and clients. Discuss the best tech stack, key features, and go-to-market strategy."></textarea>
+    <div class="row">
+      <div class="turns-row">
+        <label>Turns each:</label>
+        <input type="range" id="turns" min="1" max="6" value="3" step="1">
+        <span class="turns-val" id="turns-val">3</span>
+      </div>
+      <button class="primary" id="start-btn" onclick="startDiscussion()">Start discussion</button>
+      <button onclick="clearChat()">Clear</button>
+    </div>
+  </div>
+
+  <div class="status" id="status"></div>
+
+  <div class="chat-window" id="chat">
+    <div class="empty-state" id="empty">Set your proxy URL and topic, then hit Start discussion.</div>
+  </div>
+
+  <div class="card">
+    <label>Inject a message to steer the conversation</label>
+    <div class="row">
+      <input type="text" id="inject-input" style="flex:1;"
+        placeholder="e.g. Focus on monetization strategies"
+        onkeydown="if(event.key==='Enter') injectMsg()">
+      <button id="inject-btn" onclick="injectMsg()">Send</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let conversation = [];
+let running = false;
+
+document.getElementById('turns').addEventListener('input', e => {
+  document.getElementById('turns-val').textContent = e.target.value;
+});
+
+function setStatus(msg) { document.getElementById('status').textContent = msg; }
+function scrollChat() { const c = document.getElementById('chat'); c.scrollTop = c.scrollHeight; }
+function removeEmpty() { const e = document.getElementById('empty'); if (e) e.remove(); }
+
+function addTyping(who) {
+  removeEmpty();
+  const chat = document.getElementById('chat');
+  const wrap = document.createElement('div');
+  wrap.className = `typing-wrap ${who}`;
+  wrap.id = 'typing-indicator';
+  const init = who === 'deepseek' ? 'DS' : 'GP';
+  wrap.innerHTML = `<div class="avatar ${who}">${init}</div><div class="typing-dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>`;
+  chat.appendChild(wrap);
+  scrollChat();
+}
+
+function removeTyping() { const t = document.getElementById('typing-indicator'); if (t) t.remove(); }
+
+function addMessage(who, text) {
+  removeTyping(); removeEmpty();
+  const chat = document.getElementById('chat');
+  const div = document.createElement('div');
+  div.className = `msg ${who}`;
+  const label = who === 'deepseek' ? 'DeepSeek' : 'ChatGPT';
+  const init  = who === 'deepseek' ? 'DS' : 'GP';
+  const safe  = text.replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+  div.innerHTML = `<div class="avatar ${who}">${init}</div><div class="msg-col"><div class="msg-meta">${label}</div><div class="bubble">${safe}</div></div>`;
+  chat.appendChild(div);
+  scrollChat();
+}
+
+function addInjectedLabel(msg) {
+  const chat = document.getElementById('chat');
+  const div = document.createElement('div');
+  div.className = 'injected-label';
+  div.textContent = `You: "${msg}"`;
+  chat.appendChild(div);
+  scrollChat();
+}
+
+function clearChat() {
+  conversation = [];
+  document.getElementById('chat').innerHTML = '<div class="empty-state" id="empty">Set your proxy URL and topic, then hit Start discussion.</div>';
+  setStatus('');
+}
+
+function getProxyUrl() {
+  const url = document.getElementById('proxy-url').value.trim();
+  if (!url) throw new Error('Please enter your Vercel proxy URL.');
+  return url;
+}
+
+async function callAI(provider, messages, systemPrompt, model) {
+  const proxyUrl = getProxyUrl();
+  const res = await fetch(proxyUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      provider,
+      payload: {
+        model,
+        max_tokens: 1000,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          ...messages
+        ]
+      }
+    })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error?.message || `${provider} error ${res.status}`);
+  }
+  const data = await res.json();
+  return data.choices?.[0]?.message?.content || '[No response]';
+}
+
+async function runTurn(who) {
+  const topic = document.getElementById('topic').value.trim();
+  addTyping(who);
+
+  if (who === 'deepseek') {
+    setStatus('DeepSeek is thinking...');
+    const model = document.getElementById('ds-model').value;
+    const msgs  = conversation.map(m => ({ role: m.role, content: m.content }));
+    const sys   = `You are DeepSeek, collaborating with ChatGPT on a project. Be concise (2-4 paragraphs), analytical, and build on what ChatGPT said. Disagree respectfully when you have a better idea. Project context: ${topic}`;
+    const reply = await callAI('deepseek', msgs, sys, model);
+    conversation.push({ role: 'assistant', content: reply, who: 'deepseek' });
+    addMessage('deepseek', reply);
+  } else {
+    setStatus('ChatGPT is thinking...');
+    const model = document.getElementById('oai-model').value;
+    const msgs  = conversation.map(m => ({ role: m.who === 'chatgpt' ? 'assistant' : 'user', content: m.content }));
+    const sys   = `You are ChatGPT, collaborating with DeepSeek on a project. Be concise (2-4 paragraphs), practical, and respond to what DeepSeek said. Bring your own perspective. Project context: ${topic}`;
+    const reply = await callAI('openai', msgs, sys, model);
+    conversation.push({ role: 'user', content: reply, who: 'chatgpt' });
+    addMessage('chatgpt', reply);
+  }
+}
+
+async function runRounds(startWith) {
+  const maxTurns = parseInt(document.getElementById('turns').value) * 2;
+  const order = startWith === 'deepseek' ? ['deepseek', 'chatgpt'] : ['chatgpt', 'deepseek'];
+  for (let i = 0; i < maxTurns; i++) await runTurn(order[i % 2]);
+}
+
+async function startDiscussion() {
+  if (running) return;
+  const topic = document.getElementById('topic').value.trim();
+  if (!topic) { setStatus('Please enter a project topic first.'); return; }
+  running = true;
+  document.getElementById('start-btn').disabled = true;
+  document.getElementById('inject-btn').disabled = true;
+  clearChat();
+  conversation = [{
+    role: 'user',
+    content: `Let's discuss this project: ${topic}. Share your initial thoughts on approach, key considerations, and priorities.`,
+    who: 'system'
+  }];
+  try {
+    await runRounds('deepseek');
+    setStatus('Discussion complete. Inject a message to continue.');
+  } catch (e) {
+    removeTyping();
+    setStatus('Error: ' + e.message);
+  }
+  running = false;
+  document.getElementById('start-btn').disabled = false;
+  document.getElementById('inject-btn').disabled = false;
+}
+
+async function injectMsg() {
+  if (running) return;
+  const input = document.getElementById('inject-input');
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+  conversation.push({ role: 'user', content: msg, who: 'user' });
+  addInjectedLabel(msg);
+  running = true;
+  document.getElementById('inject-btn').disabled = true;
+  document.getElementById('start-btn').disabled = true;
+  try {
+    await runRounds('deepseek');
+    setStatus('Round complete.');
+  } catch (e) {
+    removeTyping();
+    setStatus('Error: ' + e.message);
+  }
+  running = false;
+  document.getElementById('inject-btn').disabled = false;
+  document.getElementById('start-btn').disabled = false;
+}
+</script>
+</body>
+</html>
